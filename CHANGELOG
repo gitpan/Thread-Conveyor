@@ -1,3 +1,8 @@
+0.16	28 December 2003
+	Added automatic required modules update using Devel::Required.
+
+	Added dependency to load.pm.
+
 0.15	9 November 2003
 	A problem in (threaded) 5.8.2 made Thread::Conveyor segfault in the
 	test-suite.  The problem was fortunately easy to circumvent: just don't
