@@ -3,7 +3,7 @@ package Thread::Conveyor;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.02';
+our $VERSION : unique = '0.03';
 use strict;
 
 # Make sure we have threads
@@ -12,7 +12,7 @@ use strict;
 # Make sure we can throttle if needed
 
 use threads ();
-use threads::shared qw(cond_wait cond_signal);
+use threads::shared qw(cond_wait cond_signal cond_broadcast);
 use Storable ();
 use Thread::Conveyor::Throttled ();
 
@@ -79,7 +79,7 @@ sub put {
 # Signal the other worker threads that there is a new box on the belt
 
     lock( @$belt );
-    push( @$belt,Storable::freeze( \@_ ) );
+    push( @$belt,$belt->_freeze( \@_ ) );
     cond_signal( @$belt );
 } #put
 
@@ -108,7 +108,7 @@ sub take {
 
 # Thaw the contents of the box and return the result
 
-    @{Storable::thaw( $box ) };
+    @{$belt->_thaw( $box ) };
 } #take
 
 #---------------------------------------------------------------------------
@@ -125,6 +125,36 @@ sub take_dontwait {
     lock( @$belt );
     return @$belt ? $belt->take : ();
 } #take_dontwait
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1..N references to data-structures in boxes
+
+sub clean {
+
+# Obtain the belt
+# Return now after cleaning if we're not interested in the result
+# Clean the belt and turn the boxes into references
+
+    my $belt = shift;
+    return $belt->_clean unless wantarray;
+    map {$belt->_thaw( $_ )} $belt->_clean;
+} #clean
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1..N references to data-structures in boxes
+
+sub clean_dontwait {
+
+# Obtain the belt
+# Make sure we're the only one handling the belt
+# Return the result of cleaning the belt if there are boxes, or an empty list
+
+    my $belt = shift;
+    lock( @$belt );
+    return @$belt ? $belt->clean : ();
+} #clean_dontwait
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
@@ -151,7 +181,7 @@ sub peek {
 
 # Thaw the contents of the box and return the result
 
-    @{Storable::thaw( $box )};
+    @{$belt->_thaw( $box )};
 } #peek
 
 #---------------------------------------------------------------------------
@@ -176,6 +206,68 @@ sub peek_dontwait {
 sub onbelt { scalar(@{$_[0]}) } #onbelt
 
 #---------------------------------------------------------------------------
+#  IN: 1 instantiated object (ignored)
+
+sub maxjobs {
+    die "Cannot change throttling on a belt that was created unthrottled";
+} #maxjobs
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object (ignored)
+
+sub minjobs {
+    die "Cannot change throttling on a belt that was created unthrottled";
+} #minjobs
+
+#---------------------------------------------------------------------------
+
+# Internal subroutines
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1..N all frozen boxes on the belt
+
+sub _clean {
+
+# Obtain the belt
+# Initialize the list of frozen boxes
+
+    my $belt = shift;
+    my @frozen;
+
+# Make sure we're the only one accessing the belt
+# Wait until there is something on the belt
+# Obtain the entire contents of the belt of we want it
+# Clean the belt
+# Notify the world again
+
+    {lock( @$belt );
+     cond_wait( @$belt ) until @$belt;
+     @frozen = @$belt if wantarray;
+     @$belt = ();
+     cond_broadcast( @$belt );
+    } #@$belt
+
+# Return the frozen goods
+
+    @frozen;
+} #_clean
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object (ignored)
+#      2 reference to data structure to freeze
+# OUT: 1 frozen scalar
+
+sub _freeze { Storable::freeze( $_[1] ) } #_freeze
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object (ignored)
+#      2 frozen scalar to defrost
+# OUT: 1 reference to thawed data structure
+
+sub _thaw { Storable::thaw( $_[1] ) } #_thaw
+
+#---------------------------------------------------------------------------
 
 __END__
 
@@ -193,6 +285,10 @@ Thread::Conveyor - transport of any data-structure between threads
     my ($foo,$bar,$zoo) = $belt->peek;
     my ($foo,$bar,$zoo) = $belt->peek_dontwait;
     my $onbelt = $belt->onbelt;
+
+    my @box = $belt->clean;
+    my @box = $belt->clean_dontwait;
+    my ($foo,$bar,$zoo) = @{$box[0]};
 
     $belt->maxboxes( 100 );
     $belt->minboxes( 50 );
@@ -308,6 +404,29 @@ end of the belt if there is a box waiting at the end of the belt.  If there
 is B<no> box available, then the "take_dontwait" method will return
 immediately with an empty list.  Otherwise the contents of the box will be
 thawed and the resulting values and references will be returned.
+
+=head2 clean
+
+ @box = $belt->clean;
+ ($string,$scalar,$listref,$hashref) = @{$box[0]};
+
+The "clean" method waits for one or more boxes to become available at the
+end of the belt, removes B<all> boxes from the belt, thaws the contents of
+the boxes and returns the resulting values and references as an array
+where each element is a reference to the original contents of each box.
+
+=head2 clean_dontwait
+
+ @box = $belt->clean_dontwait;
+ ($string,$scalar,$listref,$hashref) = @{$box[0]};
+
+The "clean_dontwait" method, like the L<clean> method, removes all boxes
+from the end of the belt if there are any boxes waiting at the end of the
+belt.  If there are B<no> boxes available, then the "clean_dontwait" method
+will return immediately with an empty list.  Otherwise the contents of the
+boxes will be thawed and the resulting values and references will be
+returned an an array where each element is a reference to the original
+contents of each box.
 
 =head2 peek
 

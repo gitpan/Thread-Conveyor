@@ -4,8 +4,8 @@ package Thread::Conveyor::Throttled;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our @ISA = qw(Thread::Conveyor);
-our $VERSION : unique = '0.02';
+our @ISA : unique = qw(Thread::Conveyor);
+our $VERSION : unique = '0.03';
 use strict;
 
 # Make sure we can wait and broadcast
@@ -60,6 +60,18 @@ sub take_dontwait {
     $self->_green;
     $self->{'belt'}->take_dontwait( @_ );
 } #take_dontwait
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1..N references to contents of boxes
+
+sub clean { shift->{'belt'}->clean } #clean
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1..N references to contents of boxes
+
+sub clean_dontwait { shift->{'belt'}->clean_dontwait } #clean_dontwait
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
@@ -121,10 +133,12 @@ sub minboxes {
 sub _red { 
 
 # Obtain the object
+# Return now if there is no throttling anymore
 # Obtain local copy of the belt
 
     my $self = shift;
-    my ($belt,$halted,$maxboxes) = @$self{qw(belt halted maxboxes)};
+    return unless $self->{'maxboxes'};
+    my ($belt,$halted) = @$self{qw(belt halted)};
 
 # Lock the belt
 # If were halted
@@ -143,7 +157,7 @@ sub _red {
 #  Wait until the halt flag is reset
 #  Notify the rest of the world again
 
-    } elsif (@$belt > $maxboxes) {
+    } elsif (@$belt > $self->{'maxboxes'}) {
         $$halted = 1;
         cond_broadcast( $belt );
         cond_wait( $belt ) while $$halted;
@@ -156,8 +170,13 @@ sub _red {
 
 sub _green {
 
+# Obtain the object
+# Return now if we don't have throttling anymore
+# Get local copies of the stuff we need
+
     my $self = shift;
-    my ($belt,$halted,$minboxes) = @$self{qw(belt halted minboxes)};
+    return unless $self->{'maxboxes'};
+    my ($belt,$halted) = @$self{qw(belt halted)};
 
 # Lock access to the belt
 # Return now if box putting is not halted
@@ -165,7 +184,7 @@ sub _green {
 
     lock( $belt );
     return unless $$halted;
-    return if @$belt > $minboxes;
+    return if @$belt > $belt->{'minboxes'};
 
 # Reset the halted flag, allow box putting again
 # Wake up all of the other threads to allow them to submit again
@@ -173,6 +192,12 @@ sub _green {
     $$halted = 0;
     cond_broadcast( $belt );
 } #_green
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1..N references to frozen contents of boxes
+
+sub _clean { shift->{'belt'}->_clean } #_clean
 
 #---------------------------------------------------------------------------
 

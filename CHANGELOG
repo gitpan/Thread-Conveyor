@@ -1,3 +1,24 @@
+0.03	31 July 2002
+	Added internal methods "_freeze" and "_thaw" so that we can move
+	to a different serialization scheme or other optimizations without
+	having to change all the sub-classes as well.  First user is
+	Thread::Conveyor::Monitored.
+
+	Added "maxjobs" and "minjobs" method in Thread::Conveyor that will
+	die when they're called (throttling only takes place in
+	Thread::Conveyor::Throttled).
+
+	Fixed problem that would cause throttling to not be switched off
+	when the "maxjobs" method was specified with an undef value.
+
+	Added methods "clean" and "clean_dontwait" for cleaning the belt
+	to both Thread::Conveyor and Thread::Conveyor::Throttled.  Also
+	added documentation for it.
+
+	Added internal method "_clean" for obtaining frozen contents of
+	the belt to both Thread::Conveyor and Thread::Conveyor::Throttled.
+	This was needed for Thread::Conveyor::Monitored.
+
 0.02	30 July 2002
 	Adapted Thread::Conveyor to default to a throttled conveyor belt
 	automatically if no specific parameters specified.  Now allows for
