@@ -7,7 +7,7 @@ use Thread::Tie ();
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 use strict;
 
 # Make sure we only load stuff when we actually need it

@@ -4,7 +4,7 @@ package Thread::Conveyor::Array;
 # Make sure we are a belt
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.14';
+$VERSION = '0.15';
 @ISA = qw(Thread::Conveyor);
 use strict;
 
@@ -217,7 +217,7 @@ sub minboxes {
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
 
-sub shutdown {} #shutdown
+sub shutdown { undef } #shutdown
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
