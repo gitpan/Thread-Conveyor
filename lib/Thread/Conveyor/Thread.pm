@@ -5,8 +5,12 @@ package Thread::Conveyor::Thread;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.07';
+our $VERSION : unique = '0.08';
 use strict;
+
+# Make sure we can wait and signal
+
+use threads::shared qw(cond_wait cond_signal);
 
 # Number of times this namespace has been CLONEd
 
@@ -36,26 +40,24 @@ sub new {
     $self->{'cloned'} = $cloned;
 
 # Create the shared belt semaphore
-# Create the accessing thread semaphore
 # Create the shared belt data channel
 # Create the shared maxboxes value
 # Create the shared minboxes value
 # Store references to these inside the object
 
-    my $belt : shared;
-    my $command : shared;
+    my $belt : shared = '';
     my $data : shared;
     my $maxboxes : shared = $self->{'maxboxes'};
     my $minboxes : shared = $self->{'minboxes'};
-    @$self{qw(belt command data maxboxes minboxes)} =
-     (\$belt,\$command,\$data,\$maxboxes,\$minboxes);
+    @$self{qw(belt data maxboxes minboxes)} =
+     (\$belt,\$data,\$maxboxes,\$minboxes);
 
 # Start the thread, save the thread object on the fly
 # Wait for the thread to take control
 # Return with the instantiated object
 
     $self->{'thread'} = threads->new( \&_handler,$self );
-    threads->yield until defined($command);
+    threads->yield while defined($belt);
     $self;
 } #new
 
@@ -304,40 +306,29 @@ sub _belt { shift->{'belt'} } #_belt
 sub _handle {
 
 # Obtain the object
-# Obtain the references to the belt, command and data fields
+# Obtain the references to the belt and data fields
 
     my $self = shift;
-    my ($belt,$command,$data) = @$self{qw(belt command data)};
+    my ($belt,$data) = @$self{qw(belt data)};
 
-# Initialize the counter
-# While we haven't got access to the handler
-#  Give up this timeslice if we tried this before
-#  Wait for access to the belt
-#  Reloop if we got access here before the handler was waiting again
-
-    my $tries;
-    AGAIN: while (1) {
-        threads->yield if $tries++;
-        {lock( $belt );
-         next AGAIN if defined( $$belt );
-
-# Indicate we're in charge now and command and data
+# Wait for access to the data (only one client at a time, please)
+# Wait for access to the belt
+# Set up command and data
 # Signal the handler to do its thing
 
-         ($$belt,$$command,$$data) = (threads->tid+1,@_);
-         threads::shared::cond_signal( $belt );
-        } #$belt
+    {lock( $data );
+     lock( $belt );
+     ($$belt,$$data) = @_;
+     cond_signal( $belt );
 
 #  Wait for the handler to be done with this request
 #  Obtain local copy of result
-#  Indicate that the caller is ready with the request
 #  Return result of the action
 
-        threads->yield until $$belt < 0;
-        ($command,$data) = ($$command,$$data);
-        undef( $$belt );
-        return wantarray ? ($command,$data) : $command;
-    }
+     cond_wait( $belt );
+     ($belt,$data) = ($$belt,$$data);
+    } #$data,$belt
+    return wantarray ? ($belt,$data) : $belt;
 } #_handle
 
 #---------------------------------------------------------------------------
@@ -353,8 +344,8 @@ sub _handler {
 # Obtain the references to the fields that we need
 
     my $self = shift;
-    my ($belt,$command,$data,$maxboxes,$minboxes) =
-     @$self{qw(belt command data maxboxes minboxes)};
+    my ($belt,$data,$maxboxes,$minboxes) =
+     @$self{qw(belt data maxboxes minboxes)};
 
 # Create the actual belt
 # Create the actual halted flag
@@ -364,7 +355,7 @@ sub _handler {
     my @belt;
     my $halted;
     lock( $belt );
-    $$command = 0;
+    undef( $$belt );
 
 # While we're accepting things to do
 #  Wait for something to do
@@ -372,8 +363,8 @@ sub _handler {
 #  Start the dispatcher array
 
     while (1) {
-        threads::shared::cond_wait( $belt );
-        last unless $$command;
+        cond_wait( $belt );
+        last unless $$belt;
         (0,					# 0 = exit thread
 
 #  If we're throttling
@@ -394,9 +385,9 @@ sub _handler {
               } else {
                   push( @belt,$$data );
               }
-	      $$command = !$halted;
+	      $$belt = !$halted;
           } else {
-              $$command = push( @belt,$$data );
+              $$belt = push( @belt,$$data );
           }
          },
 
@@ -404,7 +395,7 @@ sub _handler {
 #  Fetch a value from the belt if there is one
 
          sub {					# 2 = take
-          $$command = @belt;
+          $$belt = @belt;
           $$data = shift( @belt );
          },
 
@@ -412,7 +403,7 @@ sub _handler {
 #  Copy a value from the belt if there is one
 
          sub {					# 3 = peek
-          $$command = @belt;
+          $$belt = @belt;
           $$data = $belt[$$data];
          },
 
@@ -421,7 +412,7 @@ sub _handler {
 #  Reset the belt
 
          sub {					# 4 = clean and save
-          $$command = @belt;
+          $$belt = @belt;
           $$data = Thread::Serialize::freeze( @belt );
           @belt = ();
          },
@@ -430,7 +421,7 @@ sub _handler {
 #  Reset the belt
 
          sub {					# 5 = clean
-          $$command = @belt;
+          $$belt = @belt;
           @belt = ();
          },
 
@@ -439,23 +430,21 @@ sub _handler {
 
          sub {					# 6 = onbelt
           $$data = @belt;
-          $$command = 1;
+          $$belt = 1;
          },
 
 #  Execute the appropriate handler
 #  Reset halted flag if halted initially and now below threshold
 #  Indicate that we're done
-#  Wait for the result to be picked up
 
-        )[$$command]->();
+        )[$$belt]->();
         $halted = (@belt <= $$minboxes) if $halted;
-        $$belt = -$$belt;
-        threads->yield while defined( $$belt );
+        cond_signal( $belt );
     }
 
-# Indicate that we're done
+# Indicate that we're done for the one shutting us down
 
-    $$belt = -$$belt;
+    cond_signal( $belt );
 } #_handler
 
 #---------------------------------------------------------------------------

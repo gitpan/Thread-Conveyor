@@ -1,3 +1,10 @@
+0.08	20 August 2002
+	Dave Mitchell showed me the error of my ways with regards to client
+	server thread programming.  Fixed the handler optimized for memory so
+	that no yield()s are necessary anymore.  The whole thing now gets
+	through the test suite more than 25% faster for that part.
+	Scalability to many more threads should now be a lot better too.
+
 0.07	14 August 2002
 	Removed (possibly premature) optimization from T::C::Thread
 	_handler: it now doesn't zap the local threadspace anymore.
