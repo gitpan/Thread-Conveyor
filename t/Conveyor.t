@@ -23,6 +23,8 @@ foreach my $optimize (qw(cpu memory)) {
   can_ok( $belt,qw(
    new
   ) );
+#   clean
+#   clean_dontwait
 #   maxboxes
 #   minboxes
 #   onbelt
@@ -43,13 +45,12 @@ foreach my $optimize (qw(cpu memory)) {
 
   my @l = $belt->take;
   is( @l, 3,				'check # elements simple list' );
-  ok( $l[0] eq 'a' and $l[1] eq 'b' and $l[2] eq 'c', 'check simple list' );
+  ok( ($l[0] eq 'a' and $l[1] eq 'b' and $l[2] eq 'c'), 'check simple list' );
 
   my @lr = $belt->take_dontwait;
   cmp_ok( @lr, '==', 1,			'check # elements list ref' );
   is( ref($lr[0]), 'ARRAY',		'check type of list ref' );
-  ok(
-   $lr[0]->[0] eq 'a' and $lr[0]->[1] eq 'b' and $lr[0]->[2] eq 'c',
+  ok( ($lr[0]->[0] eq 'a' and $lr[0]->[1] eq 'b' and $lr[0]->[2] eq 'c'),
    'check list ref'
   );
 
@@ -57,15 +58,14 @@ foreach my $optimize (qw(cpu memory)) {
   cmp_ok( @hr, '==', 1,			'check # elements hash ref, #1' );
   is( ref($hr[0]), 'HASH',		'check type of hash ref, #1' );
 
-  my @hr = $belt->peek;
+  @hr = $belt->peek;
   cmp_ok( @hr, '==', 1,			'check # elements hash ref, #2' );
   is( ref($hr[0]), 'HASH',		'check type of hash ref, #2' );
 
   @hr = $belt->take;
   cmp_ok( @hr, '==', 1,			'check # elements hash ref, #3' );
   is( ref($hr[0]), 'HASH',		'check type of hash ref, #3' );
-  ok(
-   $hr[0]->{a} == 1 and $hr[0]->{b} == 2 and $hr[0]->{c} == 3,
+  ok( ($hr[0]->{a} == 1 and $hr[0]->{b} == 2 and $hr[0]->{c} == 3),
    'check hash ref'
   );
 

@@ -5,7 +5,7 @@ package Thread::Conveyor::Array;
 # Make sure we do everything by the book from now on
 
 @ISA = qw(Thread::Conveyor);
-$VERSION = '0.11';
+$VERSION = '0.12';
 use strict;
 
 # Make sure we only load stuff when we actually need it

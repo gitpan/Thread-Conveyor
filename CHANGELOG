@@ -1,3 +1,10 @@
+0.12	27 September 2002
+	Ask found another problem in T::C::Tied::clean_dontwait.  Fixed.
+
+	Also left warnings enabled in the test-suite last time, which caused
+	warnings in the make test.  Changed code so that the warnings are not
+	emitted anymore.
+
 0.11	26 September 2002
 	Fixed some warnings in T::C::Throttled, spotted by Ask Bjoern Hansen.
 

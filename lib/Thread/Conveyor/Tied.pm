@@ -5,7 +5,7 @@ package Thread::Conveyor::Tied;
 # Make sure we do everything by the book from now on
 
 @ISA = qw(Thread::Conveyor);
-$VERSION = '0.11';
+$VERSION = '0.12';
 use strict;
 
 # Make sure we only load stuff when we actually need it
@@ -146,7 +146,7 @@ sub clean_dontwait {
 # Return the result of cleaning the belt if there are boxes, or an empty list
 
     my $self = shift;
-    mu ($array,$semaphore) = @{$self};
+    my ($array,$semaphore) = @{$self};
     lock( $semaphore );
     return @$array ? $self->clean : ();
 } #clean_dontwait
