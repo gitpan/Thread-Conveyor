@@ -1,3 +1,35 @@
+0.05	6 August 2002
+	Fixed "onbelt" in T::C::Thread so that it won't hang if the belt is
+	shut down.  Needed for Thread::Pool and in general useful.
+
+	5 August 2002
+	Added index functionality to "peek" and "peek_dontwait" to all
+	sub-classes and added documentation for it.  Needed for Thread::Pool.
+
+	Finally got the T::C::Thread implementation getting through the
+	test-suite reliably.  Problem was caused by my misconception that
+	cond_wait would always regain the lock() after being signalled.  It
+	does not.  This should have been in big red letters in the
+	threads::shared pod.
+
+	Added methods "shutdown", "thread" and "tid" plus documentation.
+
+	3 August 2002
+	Adapted test-suite to use many more combinations of possible
+	settings.
+
+	2 August 2002
+	Added new "optimize" field parameter to allow you to select an
+	implementation optimized for speed (T::C::Array and T::C::Throttled)
+	or for memory (T::C::Thread).
+
+	Added new implementation of Thread::Conveyor based on using a
+	seperate thread for keeping the belt: Thread::Conveyor::Thread.
+
+	Move basic parts of Thread::Conveyor to Thread::Conveyor::Array.
+	Which should allow for other implementations of the conveyor
+	metaphor.
+
 0.04    1 August 2002
 	Added internal method "_belt" to get at the actual belt, for both
 	the normal and the throttled belt.

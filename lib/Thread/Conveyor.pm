@@ -3,18 +3,22 @@ package Thread::Conveyor;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.04';
+our $VERSION : unique = '0.05';
 use strict;
 
 # Make sure we have threads
-# Make sure we can share and wait and signal
+# Make sure we can share;
 # Make sure we have Storable
-# Make sure we can throttle if needed
+# Make sure everything we need of Storable is in memory
 
 use threads ();
-use threads::shared qw(cond_wait cond_signal cond_broadcast);
+use threads::shared ();
 use Storable ();
-use Thread::Conveyor::Throttled ();
+BEGIN { Storable::thaw( Storable::freeze( [] ) ) }
+
+# Set default optimization
+
+my $OPTIMIZE = 'memory';
 
 # Satisfy -require-
 
@@ -33,231 +37,131 @@ sub new {
 
 # Obtain the class
 # Obtain the parameter hash, or create an empty one
-# Create the conveyor belt
-# And bless it as a local object
 
     my $class = shift;
     my $self = shift || {};
-    my @belt : shared;
-    my $belt = bless \@belt,$class;
 
-# Set the default number of boxes to throttle to unless specifically specified
-# Return now with a simple unthrottled belt if so explicitely specified
+# Obtain the optimization to be used
+# Set maximum number of boxes if applicable
+# Return now with an unthrottled array implementation if so required
 
+    my $optimize = $self->{'optimize'} || $OPTIMIZE;
     $self->{'maxboxes'} = 50 unless exists( $self->{'maxboxes'} );
-    return $belt unless $self->{'maxboxes'};
+    return _new( $class.'::Array' )
+     if $optimize eq 'cpu' and !$self->{'maxboxes'};
 
-# Set the minimum number of boxes if not set yet
-# Embed the bare belt object in the throttled object
+# Set minimum number of boxes if applicable
 # Initialize a shared halted flag
 # Safe a reference to it in the object
 
     $self->{'minboxes'} ||= $self->{'maxboxes'} >> 1;
-    $self->{'belt'} = $belt;
     my $halted : shared = 0;
     $self->{'halted'} = \$halted;
 
-# Return with a specially blessed object
+# If we're optmizing for memory
+#  Use the ::Thread implementation
+# Elseif we're optimizing for CPU
+#  Use the ::Throttled implementation
+# Die with message
 
-    bless $self,$class.'::Throttled';
+    if ($optimize eq 'memory') {
+        return _new( $class.'::Thread',$self );
+    } elsif ($optimize eq 'cpu') {
+        return _new( $class.'::Throttled',$self );
+    }
+    die "Don't know how to handle '$optimize' optimization";
 } #new
 
 #---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-#      2..N parameters to be passed as a box onto the belt
+#  IN: 1 class (ignored)
+#      2 new default optimization type
+# OUT: 1 current default optimization type
 
-sub put {
+sub optimize {
+
+# Set new optimized value if specified
+# Return current optimized value
+
+    $OPTIMIZE = $_[1] if @_ > 1;
+    $OPTIMIZE;
+} #optimize
+
+#---------------------------------------------------------------------------
+
+# Object methods
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+#      2 new maxboxes value (default: no change)
+# OUT: 1 current maxboxes value
+
+sub maxboxes {
 
 # Obtain the object
-# Return now if nothing to do
+# Set the new maxboxes and minboxes value if new value specified
+# Return current value
 
-    my $belt = shift;
-    return unless @_;
-
-# Make sure we're the only one putting things on the belt
-# Freeze the parameters and put it in a box on the belt
-# Signal the other worker threads that there is a new box on the belt
-
-    lock( @$belt );
-    push( @$belt,$belt->_freeze( \@_ ) );
-    cond_signal( @$belt );
-} #put
+    my $self = shift;
+    $self->{'minboxes'} = ($self->{'maxboxes'} = shift) >> 1 if @_;
+    $self->{'maxboxes'};
+} #maxboxes
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
-# OUT: 1..N parameters returned from a box on the belt
+#      2 new minboxes value (default: no change)
+# OUT: 1 current minboxes value
 
-sub take {
+sub minboxes {
 
 # Obtain the object
-# Create an empty box
+# Set the new minboxes value if new value specified
+# Return current value
 
-    my $belt = shift;
-    my $box;
-
-# Make sure we're the only one working on the belt
-# Wait until someone else puts something on the belt
-# Take the box off the belt
-# Wake up other worker threads if there are stil boxes now
-
-    {lock( @$belt );
-     cond_wait( @$belt ) until @$belt;
-     $box = shift( @$belt );
-     cond_signal( @$belt ) if @$belt;
-    } #@$belt
-
-# Thaw the contents of the box and return the result
-
-    @{$belt->_thaw( $box ) };
-} #take
+    my $self = shift;
+    $self->{'minboxes'} = shift if @_;
+    $self->{'minboxes'};
+} #minboxes
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
-# OUT: 1..N parameters returned from a box on the belt
 
-sub take_dontwait {
-
-# Obtain the object
-# Make sure we're the only one handling the belt
-# Return the result of taking of a box if there is one, or an empty list
-
-    my $belt = shift;
-    lock( @$belt );
-    return @$belt ? $belt->take : ();
-} #take_dontwait
+sub shutdown {} #shutdown
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
-# OUT: 1..N references to data-structures in boxes
+# OUT: 1 thread object associated with belt (always undef)
 
-sub clean {
-
-# Obtain the belt
-# Return now after cleaning if we're not interested in the result
-# Clean the belt and turn the boxes into references
-
-    my $belt = shift;
-    return $belt->_clean unless wantarray;
-    map {$belt->_thaw( $_ )} $belt->_clean;
-} #clean
+sub thread { undef } #thread
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
-# OUT: 1..N references to data-structures in boxes
+# OUT: 1 thread id of thread object associated with belt (always undef)
 
-sub clean_dontwait {
-
-# Obtain the belt
-# Make sure we're the only one handling the belt
-# Return the result of cleaning the belt if there are boxes, or an empty list
-
-    my $belt = shift;
-    lock( @$belt );
-    return @$belt ? $belt->clean : ();
-} #clean_dontwait
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1..N parameters returned from a box on the belt
-
-sub peek {
-
-# Obtain the object
-# Create an empty box
-
-    my $belt = shift;
-    my $box;
-
-# Make sure we're the only one working on the belt
-# Wait until someone else puts something on the belt
-# Copy the box off the belt
-# Wake up other worker threads again
-
-    {lock( @$belt );
-     cond_wait( @$belt ) until @$belt;
-     $box = $belt->[0];
-     cond_signal( @$belt );
-    } #@$belt
-
-# Thaw the contents of the box and return the result
-
-    @{$belt->_thaw( $box )};
-} #peek
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1..N parameters returned from a box on the belt
-
-sub peek_dontwait {
-
-# Obtain the object
-# Make sure we're the only one handling the belt
-# Return the result of taking of a box if there is one, or an empty list
-
-    my $belt = shift;
-    lock( @$belt );
-    return @$belt ? $belt->peek : ();
-} #peek_dontwait
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1 number of boxes still on the belt
-
-sub onbelt { scalar(@{$_[0]}) } #onbelt
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object (ignored)
-
-sub maxjobs {
-    die "Cannot change throttling on a belt that was created unthrottled";
-} #maxjobs
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object (ignored)
-
-sub minjobs {
-    die "Cannot change throttling on a belt that was created unthrottled";
-} #minjobs
+sub tid { undef } #tid
 
 #---------------------------------------------------------------------------
 
 # Internal subroutines
 
 #---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1 instantiated belt object (the same here, but different for Throttled)
+#  IN: 1 class for which to create object
+#      2..N parameters to be passed to it
+# OUT: 1 blessed object
 
-sub _belt { shift } #_belt
+sub _new {
 
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1..N all frozen boxes on the belt
+# Obtain the class
+# Create module name
+# Allow non-strict references
+# Make sure the sub-module is available
+# Return object created with give parameter
 
-sub _clean {
-
-# Obtain the belt
-# Initialize the list of frozen boxes
-
-    my $belt = shift;
-    my @frozen;
-
-# Make sure we're the only one accessing the belt
-# Wait until there is something on the belt
-# Obtain the entire contents of the belt of we want it
-# Clean the belt
-# Notify the world again
-
-    {lock( @$belt );
-     cond_wait( @$belt ) until @$belt;
-     @frozen = @$belt if wantarray;
-     @$belt = ();
-     cond_broadcast( @$belt );
-    } #@$belt
-
-# Return the frozen goods
-
-    @frozen;
-} #_clean
+    my $class = shift;
+    (my $module = $class) =~ s#::#/#g;
+    no strict 'refs';
+    require $module.'.pm' unless defined( ${$class.'::VERSION'} );
+    $class->new( @_ );
+} #_new
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object (ignored)
@@ -269,9 +173,9 @@ sub _freeze { Storable::freeze( $_[1] ) } #_freeze
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object (ignored)
 #      2 frozen scalar to defrost
-# OUT: 1 reference to thawed data structure
+# OUT: 1..N thawed data structure
 
-sub _thaw { Storable::thaw( $_[1] ) } #_thaw
+sub _thaw { return unless defined( $_[1] ); @{Storable::thaw( $_[1] )} } #_thaw
 
 #---------------------------------------------------------------------------
 
@@ -284,7 +188,14 @@ Thread::Conveyor - transport of any data-structure between threads
 =head1 SYNOPSIS
 
     use Thread::Conveyor;
-    my $belt = Thread::Conveyor->new( {maxboxes => 50, minboxes => 25} );
+    my $belt = Thread::Conveyor->new(
+     {
+      maxboxes => 50,
+      minboxes => 25,
+      optimize => 'memory', # or 'cpu'
+     }
+    );
+
     $belt->put( "foo", ["bar"], {"zoo"} );
     my ($foo,$bar,$zoo) = $belt->take;
     my ($foo,$bar,$zoo) = $belt->take_dontwait;
@@ -298,6 +209,10 @@ Thread::Conveyor - transport of any data-structure between threads
 
     $belt->maxboxes( 100 );
     $belt->minboxes( 50 );
+
+    $belt->shutdown;
+    $belt->thread;
+    $belt->tid;
 
 =head1 DESCRIPTION
 
@@ -334,6 +249,7 @@ Throttling can be disabled if so desired.
   {
    maxboxes => 50,
    minboxes => 25,
+   optimize => 'memory', # or 'cpu'
   }
  );
 
@@ -370,7 +286,7 @@ during the lifetime of the object.
 
  minboxes => 25, # default: maxboxes / 2
 
-The "minboxes" field specified the B<minimum> number of boxes that can be
+The "minboxes" field specifies the B<minimum> number of boxes that can be
 waiting on the belt to be handled before the L<put>ting of boxes is allowed
 again (throttling).
 
@@ -379,6 +295,46 @@ half of the "maxboxes" value will be assumed.
 
 The L<minboxes> method can be called to change the throttling settings
 during the lifetime of the object.
+
+=item optimize
+
+ optimize => 'cpu', # default: 'memory'
+
+The "optimize" field specifies which implementation of the belt will be
+selected.  Currently there are two choices: 'cpu' and 'memory'.  By default,
+the "memory" optimization will be selected if no specific optmization is
+specified.
+
+You can call the class method L<optimize> to change the default optimization.
+
+=back
+
+=head2 optimize
+
+ Thread::Conveyor->optimize( 'cpu' );
+
+ $optimize = Thread::Conveyor->optimize;
+
+The "optimize" class method allows you to specify the default optimization
+type that will be used if no "optimize" field has been explicitely specified
+with a call to L<new>.  It returns the current default type of optimization.
+
+Currently two types of optimization can be selected:
+
+=over 2
+
+=item memory
+
+Attempt to use as little memory as possible.  Currently, this is achieved by
+starting a seperate thread which hosts an unshared array.  This uses the
+"Thread::Conveyor::Thread" sub-class.
+
+=item cpu
+
+Attempt to use as little CPU as possible.  Currently, this is achieved by
+using a shared array (using the "Thread::Conveyor::Array" sub-class),
+encapsulated in a hash reference if throttling is activated (then also using
+the "Thread::Conveyor::Throttled" sub-class).
 
 =back
 
@@ -438,20 +394,30 @@ contents of each box.
 
  ($string,$scalar,$listref,$hashref) = $belt->peek;
 
+ @lookahead = $belt->peek( $index );
+
 The "peek" method waits for a box to become availabe at the end of the
 belt, but does B<not> remove it from the belt like the L<take> method does.
 It does however thaw the contents and returns the resulting values and
 references.
 
+For advanced, and mostly internal, usages, it is possible to specify the
+ordinal number of the box in which to peek.
+
 =head2 peek_dontwait
 
  ($string,$scalar,$listref,$hashref) = $belt->peek_dontwait;
+
+ @lookahead = $belt->peek_dontwait( $index );
 
 The "peek_dontwait" method is like the L<take_dontwait> method, but does
 B<not> remove the box from the belt if there is one available.  If there
 is a box available, then the contents of the box will be thawed and the
 resulting values and references are returned.  An empty list will be
 returned if there was no box available at the end of the belt.
+
+For advanced, and mostly internal, usages, it is possible to specify the
+ordinal number of the box in which to peek.
 
 =head2 onbelt
 
@@ -492,6 +458,27 @@ equivalent to calling this method.
 
 The L<maxboxes> method can be called to set the maximum number of boxes that
 may be on the belt before the putting of boxes will be halted.
+
+=head2 shutdown
+
+ $belt->shutdown;
+
+The "shutdown" method performs an orderly shutdown of the belt.  It waits
+until all of the boxes on the belt have been removed before it returns.
+
+=head2 thread
+
+ $thread = $belt->thread;
+
+The "thread" method returns the thread object that is being used for the belt.
+It returns undef if no seperate thread is being used.
+
+=head2 tid
+
+ $tid = $belt->tid;
+
+The "tid" method returns the thread id of the thread object that is being
+used for the belt.  It returns undef if no seperate thread is being used.
 
 =head1 CAVEATS
 

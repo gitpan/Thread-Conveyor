@@ -5,16 +5,44 @@ package Thread::Conveyor::Throttled;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.04';
+our $VERSION : unique = '0.05';
 use strict;
 
+# Make sure we can do a shared array belt
 # Make sure we can wait and broadcast
 
+use Thread::Conveyor::Array ();
 use threads::shared qw(cond_wait cond_broadcast);
 
 # Satisfy -require-
 
 1;
+
+#---------------------------------------------------------------------------
+
+# Class methods
+
+#---------------------------------------------------------------------------
+#  IN: 1 class with which to bless the object
+#      2 parameter hash reference
+# OUT: 1 instantiated object
+
+sub new {
+
+# Obtain the class
+# Obtain the parameter hash
+# Create a shared array conveyor belt
+# Return with a blessed object
+
+    my $class = shift;
+    my $self = shift;
+    $self->{'belt'} = Thread::Conveyor::Array->new;
+    bless $self,$class;
+} #new
+
+#---------------------------------------------------------------------------
+
+# object methods
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
@@ -75,15 +103,17 @@ sub clean_dontwait { shift->{'belt'}->clean_dontwait } #clean_dontwait
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
+#      2 index into array at which to peek (default: 0)
 # OUT: 1..N parameters returned from a box on the belt
 
-sub peek { shift->{'belt'}->peek } #peek
+sub peek { shift->{'belt'}->peek( @_ ) } #peek
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
+#      2 index into array at which to peek (default: 0)
 # OUT: 1..N parameters returned from a box on the belt
 
-sub peek_dontwait { shift->{'belt'}->peek_dontwait } #peek_dontwait
+sub peek_dontwait { shift->{'belt'}->peek_dontwait( @_ ) } #peek_dontwait
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
@@ -215,8 +245,8 @@ Thread::Conveyor::Throttled - helper class of Thread::Conveyor
 
 =head1 DESCRIPTION
 
-This class should not be called by itself, but only by specifying throttling
-parameters with a call to L<Thread::Conveyor>.
+This class should not be called by itself, but only with a call to
+L<Thread::Conveyor>.
 
 =head1 AUTHOR
 
