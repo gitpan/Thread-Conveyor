@@ -5,18 +5,12 @@ package Thread::Conveyor::Throttled;
 # Make sure we do everything by the book from now on
 
 our @ISA = qw(Thread::Conveyor);
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 use strict;
 
 # Make sure we only load stuff when we actually need it
 
 use AutoLoader ();
-
-# Make sure we can do a shared array belt
-# Make sure we can wait and broadcast
-
-use Thread::Conveyor::Array ();
-use threads::shared qw(cond_wait cond_broadcast);
 
 # Satisfy -require-
 
@@ -35,12 +29,15 @@ sub new {
 
 # Obtain the class
 # Obtain the parameter hash
-# Create a shared array conveyor belt
+# Create a conveyor belt of the right type and save its object
+# Create local copy of it's semaphore (save one indirection later on)
 # Return with a blessed object
 
     my $class = shift;
     my $self = shift;
-    $self->{'belt'} = Thread::Conveyor::Array->new;
+    my $belt = $self->{'belt'} = $class->SUPER::_new(
+     'Thread::Conveyor::'.(qw(Tied Array)[$self->{'optimize'} eq 'cpu']), @_ );
+    $self->{'semaphore'} = $belt->semaphore;
     bless $self,$class;
 } #new
 
@@ -195,18 +192,18 @@ sub _red {
 
     my $self = shift;
     return unless $self->{'maxboxes'};
-    my ($belt,$halted) = @$self{qw(belt halted)};
+    my ($belt,$semaphore,$halted) = @$self{qw(belt semaphore halted)};
 
 # Lock the belt
 # If were halted
 #  Wait until the halt flag is reset
 #  Notify the rest of the world again
 
-    lock( $belt );
+    lock( $semaphore );
     return unless $$halted;
     if ($$halted) {
-        cond_wait( $belt ) while $$halted;
-        cond_broadcast( $belt );
+        threads::shared::cond_wait( $semaphore ) while $$halted;
+        threads::shared::cond_broadcast( $semaphore );
 
 # Elseif there are now too many boxes in the belt
 #  Set the box putting halted flag
@@ -214,11 +211,11 @@ sub _red {
 #  Wait until the halt flag is reset
 #  Notify the rest of the world again
 
-    } elsif (@$belt > $self->{'maxboxes'}) {
+    } elsif ($belt->onbelt > $self->{'maxboxes'}) {
         $$halted = 1;
-        cond_broadcast( $belt );
-        cond_wait( $belt ) while $$halted;
-        cond_broadcast( $belt );
+        threads::shared::cond_broadcast( $semaphore );
+        threads::shared::cond_wait( $semaphore ) while $$halted;
+        threads::shared::cond_broadcast( $semaphore );
     }
 } #_red
 
@@ -233,28 +230,22 @@ sub _green {
 
     my $self = shift;
     return unless $self->{'maxboxes'};
-    my ($belt,$halted) = @$self{qw(belt halted)};
+    my ($belt,$semaphore,$halted) = @$self{qw(belt semaphore halted)};
 
 # Lock access to the belt
 # Return now if box putting is not halted
 # Return if current number boxes of is still more than minimum number of boxes
 
-    lock( $belt );
+    lock( $semaphore );
     return unless $$halted;
-    return if @$belt > $belt->{'minboxes'};
+    return if $belt->onbelt > $belt->{'minboxes'};
 
 # Reset the halted flag, allow box putting again
 # Wake up all of the other threads to allow them to submit again
 
     $$halted = 0;
-    cond_broadcast( $belt );
+    threads::shared::cond_broadcast( $semaphore );
 } #_green
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1 instantiated belt object
-
-sub _belt { shift->{'belt'} } #_belt
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object

@@ -1,4 +1,4 @@
-package Thread::Conveyor::Array;
+package Thread::Conveyor::Tied;
 
 # Make sure we are a belt
 # Make sure we have version info for this module
@@ -26,13 +26,11 @@ use AutoLoader ();
 
 sub new {
 
-# Obtain the class
-# Create the conveyor belt
-# And bless it as an object
+# Create the tied conveyor belt
+# And bless reference to belt + its semaphore as an object and return it
 
-    my $class = shift;
-    my @belt : shared;
-    bless \@belt,$class;
+    tie my @array,'Thread::Tie';
+    bless [\@array,(tied @array)->semaphore],shift;
 } #new
 
 #---------------------------------------------------------------------------
@@ -43,7 +41,7 @@ sub new {
 #  IN: 1 instantiated object
 # OUT: 1 shared item on which you can lock
 
-sub semaphore { shift } # semaphore
+sub semaphore { shift->[1] } # semaphore
 
 #---------------------------------------------------------------------------
 
@@ -64,16 +62,16 @@ sub put {
 # Obtain the object
 # Return now if nothing to do
 
-    my $belt = shift;
+    my ($array,$semaphore) = @{shift()};
     return unless @_;
 
 # Make sure we're the only one putting things on the belt
 # Freeze the parameters and put it in a box on the belt
 # Signal the other worker threads that there is a new box on the belt
 
-    lock( @$belt );
-    push( @$belt,Thread::Serialize::freeze( @_ ) );
-    threads::shared::cond_signal( @$belt );
+    lock( $semaphore );
+    push( @$array,Thread::Serialize::freeze( @_ ) );
+    threads::shared::cond_signal( $semaphore );
 } #put
 
 #---------------------------------------------------------------------------
@@ -82,10 +80,10 @@ sub put {
 
 sub take {
 
-# Obtain the object
+# Obtain the belt and semaphore
 # Create an empty box
 
-    my $belt = shift;
+    my ($array,$semaphore) = @{shift()};
     my $box;
 
 # Make sure we're the only one working on the belt
@@ -93,11 +91,11 @@ sub take {
 # Take the box off the belt
 # Wake up other worker threads if there are still boxes now
 
-    {lock( @$belt );
-     threads::shared::cond_wait( @$belt ) until @$belt;
-     $box = shift( @$belt );
-     threads::shared::cond_signal( @$belt ) if @$belt;
-    } #@$belt
+    {lock( $semaphore );
+     threads::shared::cond_wait( $semaphore ) until @$array;
+     $box = shift( @$array );
+     threads::shared::cond_signal( $semaphore ) if @$array;
+    } #$semaphore
 
 # Thaw the contents of the box and return the result
 
@@ -111,12 +109,14 @@ sub take {
 sub take_dontwait {
 
 # Obtain the object
+# Obtain belt and semaphore
 # Make sure we're the only one handling the belt
 # Return the result of taking of a box if there is one, or an empty list
 
-    my $belt = shift;
-    lock( @$belt );
-    return @$belt ? $belt->take : ();
+    my $self = shift;
+    my ($array,$semaphore) = @{$self};
+    lock( $semaphore );
+    return @$array ? $self->take : ();
 } #take_dontwait
 
 #---------------------------------------------------------------------------
@@ -125,13 +125,13 @@ sub take_dontwait {
 
 sub clean {
 
-# Obtain the belt
+# Obtain the object
 # Return now after cleaning if we're not interested in the result
 # Clean the belt and turn the boxes into references
 
-    my $belt = shift;
-    return $belt->_clean unless wantarray;
-    map {[Thread::Serialize::thaw( $_ )]} $belt->_clean;
+    my $self = shift;
+    return $self->_clean unless wantarray;
+    map {[Thread::Serialize::thaw( $_ )]} $self->_clean;
 } #clean
 
 #---------------------------------------------------------------------------
@@ -140,13 +140,15 @@ sub clean {
 
 sub clean_dontwait {
 
-# Obtain the belt
+# Obtain the object
+# Obtain the belt and semaphore
 # Make sure we're the only one handling the belt
 # Return the result of cleaning the belt if there are boxes, or an empty list
 
-    my $belt = shift;
-    lock( @$belt );
-    return @$belt ? $belt->clean : ();
+    my $self = shift;
+    mu ($array,$semaphore) = @{$self};
+    lock( $semaphore );
+    return @$array ? $self->clean : ();
 } #clean_dontwait
 
 #---------------------------------------------------------------------------
@@ -156,10 +158,10 @@ sub clean_dontwait {
 
 sub peek {
 
-# Obtain the object
+# Obtain the belt and the semaphore
 # Create an empty box
 
-    my $belt = shift;
+    my ($array,$semaphore) = @{shift()};
     my $box;
 
 # Make sure we're the only one working on the belt
@@ -167,11 +169,11 @@ sub peek {
 # Copy the box off the belt
 # Wake up other worker threads again
 
-    {lock( @$belt );
-     threads::shared::cond_wait( @$belt ) until @$belt;
-     $box = $belt->[shift || 0];
-     threads::shared::cond_signal( @$belt );
-    } #@$belt
+    {lock( $semaphore );
+     threads::shared::cond_wait( $semaphore ) until @$array;
+     $box = $array->[shift || 0];
+     threads::shared::cond_signal( $semaphore );
+    } #$semaphore
 
 # Thaw the contents of the box and return the result
 
@@ -186,19 +188,21 @@ sub peek {
 sub peek_dontwait {
 
 # Obtain the object
+# Obtain the belt and the semaphore
 # Make sure we're the only one handling the belt
 # Return the result of taking of a box if there is one, or an empty list
 
-    my $belt = shift;
-    lock( @$belt );
-    return @$belt ? $belt->peek( @_ ) : ();
+    my $self = shift;
+    my ($array,$semaphore) = @{$self};
+    lock( $semaphore );
+    return @$array ? $self->peek( @_ ) : ();
 } #peek_dontwait
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
 # OUT: 1 number of boxes still on the belt
 
-sub onbelt { scalar(@{$_[0]}) } #onbelt
+sub onbelt { scalar(@{$_[0]->[0]}) } #onbelt
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object (ignored)
@@ -244,7 +248,7 @@ sub _clean {
 # Obtain the belt
 # Initialize the list of frozen boxes
 
-    my $belt = shift;
+    my ($array,$semaphore) = @{shift()};
     my @frozen;
 
 # Make sure we're the only one accessing the belt
@@ -253,12 +257,12 @@ sub _clean {
 # Clean the belt
 # Notify the world again
 
-    {lock( @$belt );
-     threads::shared::cond_wait( @$belt ) until @$belt;
-     @frozen = @$belt if wantarray;
-     @$belt = ();
-     threads::shared::cond_broadcast( @$belt );
-    } #@$belt
+    {lock( $semaphore );
+     threads::shared::cond_wait( $semaphore ) until @$array;
+     @frozen = @$array if wantarray;
+     @$array = ();
+     threads::shared::cond_broadcast( $semaphore );
+    } #$semaphore
 
 # Return the frozen goods
 
@@ -269,7 +273,7 @@ sub _clean {
 
 =head1 NAME
 
-Thread::Conveyor::Array - array implementation of Thread::Conveyor
+Thread::Conveyor::Tied - tied array implementation of Thread::Conveyor
 
 =head1 DESCRIPTION
 

@@ -1,3 +1,33 @@
+0.10	1 September 2002
+	Replaced dependency on Thread::Serialize by dependency on Thread::Tie
+	as the default, memory optimized implementation, now uses Thread::Tie.
+
+	Changed Thread::Conveyor so that it uses T::C::Tied for unthrottled
+	belts when optimizing for memory.
+
+	Changed T::C::Throttled so that it makes its own decision on which
+	belt implementation to be used, either T::C::Array (optimized for
+	CPU) or T::C::Tied (optimized for memory).
+
+	Added "semaphore" object method to T::C::Array for obtaining the
+	lock() semaphore, needed by T::C::Throttled.
+
+	Removed T::C::Thread from the distribution.  This shaves about 1200
+	bytes off of the distribution package.
+
+	Replaced Thread::Conveyor::Thread by Thread::Conveyor::Tied, which
+	uses Thread::Tie as its shared array implementation.  This has the
+	side-effect to being almost twice as slow but saving 18% of
+	memory (at least in the test-suite).  So there is now a true CPU
+	versus memory trade-off.  Main difference in CPU is caused by the
+	fact that whole array fetches aren't possible using the tie()
+	interface (this is a loop with FETCH()), wherease T::C::Thread was
+	optimized to deal with that case).  Main difference in memory is
+	caused by the fact that only one thread (the Thread::Tie default
+	thread) is used for all belts, whereas before each belt had its own
+	thread.  So the savings in memory could in real world situations, be
+	quite a lot more than the 18% seen in the test-suite.
+
 0.09	30 August 2002
 	Changed all modules to use AutoLoader to defer loading of necessary
 	subroutines to when they are actually needed.  This should save

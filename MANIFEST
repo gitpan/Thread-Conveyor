@@ -6,6 +6,6 @@ VERSION
 Makefile.PL
 lib/Thread/Conveyor.pm
 lib/Thread/Conveyor/Array.pm
-lib/Thread/Conveyor/Thread.pm
+lib/Thread/Conveyor/Tied.pm
 lib/Thread/Conveyor/Throttled.pm
 t/Conveyor.t

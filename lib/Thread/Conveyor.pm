@@ -1,22 +1,18 @@
 package Thread::Conveyor;
 
+# Start the Thread::Tie thread now if not already started (as clean as possible)
+
+use Thread::Tie ();
+
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 use strict;
 
 # Make sure we only load stuff when we actually need it
 
 use AutoLoader 'AUTOLOAD';
-
-# Make sure we have threads
-# Make sure we can share;
-# Make sure we have serialize
-
-use threads ();
-use threads::shared ();
-use Thread::Serialize ();
 
 # Set default optimization
 
@@ -58,34 +54,28 @@ sub new {
     my $self = shift || {};
 
 # Obtain the optimization to be used
+# Die now if unknown optimization
+
+    my $optimize = $self->{'optimize'} || $OPTIMIZE;
+    die "Don't know how to handle '$optimize' optimization"
+     unless $optimize =~ m#^(?:cpu|memory)$#;
+
 # Set maximum number of boxes if applicable
 # Return now with an unthrottled array implementation if so required
 
-    my $optimize = $self->{'optimize'} || $OPTIMIZE;
     $self->{'maxboxes'} = 50 unless exists( $self->{'maxboxes'} );
-    return _new( $class.'::Array' )
-     if $optimize eq 'cpu' and !$self->{'maxboxes'};
+    return $class->_new( $class.'::'.(qw(Tied Array)[$optimize eq 'cpu']) )
+      if !$self->{'maxboxes'};
 
 # Set minimum number of boxes if applicable
 # Initialize a shared halted flag
 # Safe a reference to it in the object
+# Use the ::Throttled implementation (which will figure which optimization)
 
     $self->{'minboxes'} ||= $self->{'maxboxes'} >> 1;
     my $halted : shared = 0;
     $self->{'halted'} = \$halted;
-
-# If we're optmizing for memory
-#  Use the ::Thread implementation
-# Elseif we're optimizing for CPU
-#  Use the ::Throttled implementation
-# Die with message
-
-    if ($optimize eq 'memory') {
-        return _new( $class.'::Thread',$self );
-    } elsif ($optimize eq 'cpu') {
-        return _new( $class.'::Throttled',$self );
-    }
-    die "Don't know how to handle '$optimize' optimization";
+    $class->_new( $class.'::Throttled',$self );
 } #new
 
 #---------------------------------------------------------------------------
@@ -107,18 +97,21 @@ sub optimize {
 # Internal subroutines
 
 #---------------------------------------------------------------------------
-#  IN: 1 class for which to create object
-#      2..N parameters to be passed to it
+#  IN: 1 this class (ignored)
+#      2 class for which to create object
+#      3..N parameters to be passed to it
 # OUT: 1 blessed object
 
 sub _new {
 
+# Ignore our own class
 # Obtain the class
 # Create module name
 # Allow non-strict references
 # Make sure the sub-module is available
 # Return object created with give parameter
 
+    shift;
     my $class = shift;
     (my $module = $class) =~ s#::#/#g;
     no strict 'refs';
