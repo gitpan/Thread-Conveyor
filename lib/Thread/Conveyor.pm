@@ -3,8 +3,12 @@ package Thread::Conveyor;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.08';
+our $VERSION = '0.09';
 use strict;
+
+# Make sure we only load stuff when we actually need it
+
+use AutoLoader 'AUTOLOAD';
 
 # Make sure we have threads
 # Make sure we can share;
@@ -16,11 +20,25 @@ use Thread::Serialize ();
 
 # Set default optimization
 
-my $OPTIMIZE = 'memory';
+our $OPTIMIZE = 'memory';
 
 # Satisfy -require-
 
 1;
+
+#---------------------------------------------------------------------------
+
+# standard Perl features
+
+#---------------------------------------------------------------------------
+
+sub DESTROY {}; # dummy, prevents AutoLoader problems
+
+#---------------------------------------------------------------------------
+
+# AutoLoader takes over from here
+
+__END__
 
 #---------------------------------------------------------------------------
 
@@ -86,59 +104,6 @@ sub optimize {
 
 #---------------------------------------------------------------------------
 
-# Object methods
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-#      2 new maxboxes value (default: no change)
-# OUT: 1 current maxboxes value
-
-sub maxboxes {
-
-# Obtain the object
-# Set the new maxboxes and minboxes value if new value specified
-# Return current value
-
-    my $self = shift;
-    $self->{'minboxes'} = ($self->{'maxboxes'} = shift) >> 1 if @_;
-    $self->{'maxboxes'};
-} #maxboxes
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-#      2 new minboxes value (default: no change)
-# OUT: 1 current minboxes value
-
-sub minboxes {
-
-# Obtain the object
-# Set the new minboxes value if new value specified
-# Return current value
-
-    my $self = shift;
-    $self->{'minboxes'} = shift if @_;
-    $self->{'minboxes'};
-} #minboxes
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-
-sub shutdown {} #shutdown
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1 thread object associated with belt (always undef)
-
-sub thread { undef } #thread
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-# OUT: 1 thread id of thread object associated with belt (always undef)
-
-sub tid { undef } #tid
-
-#---------------------------------------------------------------------------
-
 # Internal subroutines
 
 #---------------------------------------------------------------------------
@@ -162,8 +127,6 @@ sub _new {
 } #_new
 
 #---------------------------------------------------------------------------
-
-__END__
 
 =head1 NAME
 
@@ -464,14 +427,20 @@ It returns undef if no seperate thread is being used.
 The "tid" method returns the thread id of the thread object that is being
 used for the belt.  It returns undef if no seperate thread is being used.
 
+=head1 OPTIMIZATIONS
+
+This module uses L<AutoLoader> to reduce memory and CPU usage. This causes
+subroutines only to be compiled in a thread when they are actually needed at
+the expense of more CPU when they need to be compiled.  Simple benchmarks
+however revealed that the overhead of the compiling single routines is not
+much more (and sometimes a lot less) than the overhead of cloning a Perl
+interpreter with a lot of subroutines pre-loaded.
+
 =head1 CAVEATS
 
 Passing unshared values between threads is accomplished by serializing the
-specified values using C<Storable> when putting a box of values on the belt
-and removing the values from a box.  This allows for great flexibility at
-the expense of more CPU usage.  It also limits what can be passed, as e.g.
-code references and blessed objects can B<not> be serialized and therefore
-not be passed.
+specified values using L<Thread::Serialize>.  Please see the CAVEATS section
+there for an up-to-date status of what can be passed around between threads.
 
 =head1 AUTHOR
 
@@ -494,6 +463,6 @@ modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<threads>, L<threads::shared>, L<Thread::Queue>, L<Storable>.
+L<threads>, L<threads::shared>, L<Thread::Queue>, L<Thread::Serialize>.
 
 =cut

@@ -4,9 +4,13 @@ package Thread::Conveyor::Thread;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.08';
+our @ISA = qw(Thread::Conveyor);
+our $VERSION = '0.09';
 use strict;
+
+# Make sure we only load stuff when we actually need it
+
+use AutoLoader ();
 
 # Make sure we can wait and signal
 
@@ -19,6 +23,35 @@ my $cloned = 0;
 # Satisfy -require-
 
 1;
+
+#---------------------------------------------------------------------------
+
+# Routines for standard Perl features
+
+#---------------------------------------------------------------------------
+#  IN: 1 namespace being cloned (ignored)
+
+sub CLONE { $cloned++ } #CLONE
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+
+sub DESTROY {
+
+# Return now if we're in a rogue DESTROY
+
+    return unless UNIVERSAL::isa( $_[0],__PACKAGE__ ); #HACK
+
+# Obtain the object
+# Return now if we're not allowed to run DESTROY
+
+    my $self = shift;
+    return unless $self->{'cloned'} == $cloned;
+
+# Tell the thread to quit now
+
+    $self->shutdown( 1 );
+} #DESTROY
 
 #---------------------------------------------------------------------------
 
@@ -60,6 +93,12 @@ sub new {
     threads->yield while defined($belt);
     $self;
 } #new
+
+#---------------------------------------------------------------------------
+
+# AutoLoader takes over from here
+
+__END__
 
 #---------------------------------------------------------------------------
 
@@ -448,37 +487,6 @@ sub _handler {
 } #_handler
 
 #---------------------------------------------------------------------------
-
-# Routines for standard Perl features
-
-#---------------------------------------------------------------------------
-#  IN: 1 namespace being cloned (ignored)
-
-sub CLONE { $cloned++ } #CLONE
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object
-
-sub DESTROY {
-
-# Return now if we're in a rogue DESTROY
-
-    return unless UNIVERSAL::isa( $_[0],__PACKAGE__ ); #HACK
-
-# Obtain the object
-# Return now if we're not allowed to run DESTROY
-
-    my $self = shift;
-    return unless $self->{'cloned'} == $cloned;
-
-# Tell the thread to quit now
-
-    $self->shutdown( 1 );
-} #DESTROY
-
-#---------------------------------------------------------------------------
-
-__END__
 
 =head1 NAME
 

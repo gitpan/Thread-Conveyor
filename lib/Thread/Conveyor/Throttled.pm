@@ -4,9 +4,13 @@ package Thread::Conveyor::Throttled;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.08';
+our @ISA = qw(Thread::Conveyor);
+our $VERSION = '0.09';
 use strict;
+
+# Make sure we only load stuff when we actually need it
+
+use AutoLoader ();
 
 # Make sure we can do a shared array belt
 # Make sure we can wait and broadcast
@@ -39,6 +43,12 @@ sub new {
     $self->{'belt'} = Thread::Conveyor::Array->new;
     bless $self,$class;
 } #new
+
+#---------------------------------------------------------------------------
+
+# AutoLoader takes over from here
+
+__END__
 
 #---------------------------------------------------------------------------
 
@@ -154,6 +164,23 @@ sub minboxes {
 } #minboxes
 
 #---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+
+sub shutdown {} #shutdown
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1 thread object associated with belt (always undef)
+
+sub thread { undef } #thread
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1 thread id of thread object associated with belt (always undef)
+
+sub tid { undef } #tid
+
+#---------------------------------------------------------------------------
 
 # internal methods
 
@@ -236,8 +263,6 @@ sub _belt { shift->{'belt'} } #_belt
 sub _clean { shift->{'belt'}->_clean } #_clean
 
 #---------------------------------------------------------------------------
-
-__END__
 
 =head1 NAME
 

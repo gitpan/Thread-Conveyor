@@ -1,3 +1,11 @@
+0.09	30 August 2002
+	Changed all modules to use AutoLoader to defer loading of necessary
+	subroutines to when they are actually needed.  This should save
+	memory and CPU for larger programs, or with large numbers of threads.
+	The test-suite only marginally takes more memory at the same CPU
+	usage: overhead of compiling is levelled out with the overhead of
+	cloning pre-compiled routines.
+
 0.08	20 August 2002
 	Dave Mitchell showed me the error of my ways with regards to client
 	server thread programming.  Fixed the handler optimized for memory so

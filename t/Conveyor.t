@@ -19,19 +19,19 @@ foreach my $optimize (qw(cpu memory)) {
   my $belt = Thread::Conveyor->new( {@base} );
   isa_ok( $belt, 'Thread::Conveyor', 'check object type' );
 
+#   maxboxes
+#   minboxes
+#   onbelt
+#   peek
+#   peek_dontwait
+#   put
+#   take
+#   take_dontwait
+#   shutdown
+#   thread
+#   tid
   can_ok( $belt,qw(
-   maxboxes
-   minboxes
    new
-   onbelt
-   peek
-   peek_dontwait
-   put
-   shutdown
-   take
-   take_dontwait
-   thread
-   tid
   ) );
 
   $belt->put( qw(a b c) );
@@ -81,6 +81,7 @@ foreach my $optimize (qw(cpu memory)) {
     ) {
 
       my $belt = Thread::Conveyor->new( $_ );
+
       isa_ok( $belt,'Thread::Conveyor',	'check object type' );
 
       my @n : shared = ();
