@@ -5,7 +5,7 @@ package Thread::Conveyor::Array;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.06';
+our $VERSION : unique = '0.07';
 use strict;
 
 # Make sure we can share and wait and signal
@@ -75,7 +75,7 @@ sub take {
 # Make sure we're the only one working on the belt
 # Wait until someone else puts something on the belt
 # Take the box off the belt
-# Wake up other worker threads if there are stil boxes now
+# Wake up other worker threads if there are still boxes now
 
     {lock( @$belt );
      cond_wait( @$belt ) until @$belt;

@@ -5,7 +5,7 @@ package Thread::Conveyor::Thread;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.06';
+our $VERSION : unique = '0.07';
 use strict;
 
 # Number of times this namespace has been CLONEd
@@ -349,36 +349,6 @@ sub _handle {
 
 sub _handler {
 
-# Obtain a reference to the wait routine (so that we can zap the namespace)
-# Obtain a reference to the yield routine (so that we can zap the namespace)
-# Create a reference to the freeze routine (so that we can zap the namespace)
-    
-    my $wait = \&threads::shared::cond_wait;
-    my $yield = \&threads::yield;
-    my $freeze = \&Thread::Serialize::freeze;
-
-# Allow for non-strict references
-# For all of the modules that are loaded
-#  Reloop if an absolute path
-#  Remove knowledge of it being loaded
-#  Turn it into a module name
-
-    {no strict 'refs';
-     foreach (keys %INC) {
-         next if m#^/#; # absolute path in %INC?
-         delete( $INC{$_} );
-         s#\.pm$##; s#/#::#g;
-
-#  Zap the stash of the module
-#  Recreate with just an undefined version (otherwise segfaults occur)
-
-         eval {
-	  undef( %{$_.'::'} );
-          undef( ${$_.'::VERSION'} );
-	 }
-     }
-    }
-
 # Obtain the object
 # Obtain the references to the fields that we need
 
@@ -402,7 +372,7 @@ sub _handler {
 #  Start the dispatcher array
 
     while (1) {
-        $wait->( $belt );
+        threads::shared::cond_wait( $belt );
         last unless $$command;
         (0,					# 0 = exit thread
 
@@ -452,7 +422,7 @@ sub _handler {
 
          sub {					# 4 = clean and save
           $$command = @belt;
-          $$data = $freeze->( @belt );
+          $$data = Thread::Serialize::freeze( @belt );
           @belt = ();
          },
 
@@ -480,7 +450,7 @@ sub _handler {
         )[$$command]->();
         $halted = (@belt <= $$minboxes) if $halted;
         $$belt = -$$belt;
-        &$yield while defined( $$belt );
+        threads->yield while defined( $$belt );
     }
 
 # Indicate that we're done

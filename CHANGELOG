@@ -1,3 +1,7 @@
+0.07	14 August 2002
+	Removed (possibly premature) optimization from T::C::Thread
+	_handler: it now doesn't zap the local threadspace anymore.
+
 0.06	13 August 2002
 	Handed over freezing and thawing operations to Thread::Serialize.
 	Added dependency to Thread::Serialize in Makefile.PL.
