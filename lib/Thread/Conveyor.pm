@@ -3,18 +3,16 @@ package Thread::Conveyor;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.05';
+our $VERSION : unique = '0.06';
 use strict;
 
 # Make sure we have threads
 # Make sure we can share;
-# Make sure we have Storable
-# Make sure everything we need of Storable is in memory
+# Make sure we have serialize
 
 use threads ();
 use threads::shared ();
-use Storable ();
-BEGIN { Storable::thaw( Storable::freeze( [] ) ) }
+use Thread::Serialize ();
 
 # Set default optimization
 
@@ -162,20 +160,6 @@ sub _new {
     require $module.'.pm' unless defined( ${$class.'::VERSION'} );
     $class->new( @_ );
 } #_new
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object (ignored)
-#      2 reference to data structure to freeze
-# OUT: 1 frozen scalar
-
-sub _freeze { Storable::freeze( $_[1] ) } #_freeze
-
-#---------------------------------------------------------------------------
-#  IN: 1 instantiated object (ignored)
-#      2 frozen scalar to defrost
-# OUT: 1..N thawed data structure
-
-sub _thaw { return unless defined( $_[1] ); @{Storable::thaw( $_[1] )} } #_thaw
 
 #---------------------------------------------------------------------------
 

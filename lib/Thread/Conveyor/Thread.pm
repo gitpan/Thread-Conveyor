@@ -5,7 +5,7 @@ package Thread::Conveyor::Thread;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.05';
+our $VERSION : unique = '0.06';
 use strict;
 
 # Number of times this namespace has been CLONEd
@@ -80,7 +80,7 @@ sub put {
 #  Handle the put command, return if successful
 #  Give up this timeslice
 
-    my $frozen = $self->_freeze( \@_ );
+    my $frozen = Thread::Serialize::freeze( @_ );
     while (1) {
         return if $self->_handle( 1,$frozen );
         threads->yield;
@@ -109,7 +109,7 @@ sub take {
 
     while (1) {
         my ($ok,$data) = $self->_handle( $todo,$index );
-        return $self->_thaw( $data ) if $ok;
+        return Thread::Serialize::thaw( $data ) if $ok;
 	threads->yield;
     }
 } #take
@@ -128,7 +128,7 @@ sub take_dontwait {
 
     my $self = shift;
     my ($ok,$data) = $self->_handle( (shift || 2),shift );
-    return $ok ? $self->_thaw( $data ) : ();
+    return $ok ? Thread::Serialize::thaw( $data ) : ();
 } #take_dontwait
 
 #---------------------------------------------------------------------------
@@ -171,7 +171,8 @@ sub clean {
 
         if ($ok) {
              return unless defined(wantarray);
-             return map {[$self->_thaw( $_ )]} @{Storable::thaw( $data )};
+             return map {[Thread::Serialize::thaw( $_ )]}
+	      Thread::Serialize::thaw( $data );
         } elsif( $dontwait ) {
              return ();
         }
@@ -354,7 +355,7 @@ sub _handler {
     
     my $wait = \&threads::shared::cond_wait;
     my $yield = \&threads::yield;
-    my $freeze = \&Storable::freeze;
+    my $freeze = \&Thread::Serialize::freeze;
 
 # Allow for non-strict references
 # For all of the modules that are loaded
@@ -451,7 +452,7 @@ sub _handler {
 
          sub {					# 4 = clean and save
           $$command = @belt;
-          $$data = $freeze->( \@belt );
+          $$data = $freeze->( @belt );
           @belt = ();
          },
 

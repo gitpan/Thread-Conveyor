@@ -1,3 +1,7 @@
+0.06	13 August 2002
+	Handed over freezing and thawing operations to Thread::Serialize.
+	Added dependency to Thread::Serialize in Makefile.PL.
+
 0.05	6 August 2002
 	Fixed "onbelt" in T::C::Thread so that it won't hang if the belt is
 	shut down.  Needed for Thread::Pool and in general useful.

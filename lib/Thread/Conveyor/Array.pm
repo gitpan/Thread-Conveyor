@@ -5,7 +5,7 @@ package Thread::Conveyor::Array;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.05';
+our $VERSION : unique = '0.06';
 use strict;
 
 # Make sure we can share and wait and signal
@@ -56,7 +56,7 @@ sub put {
 # Signal the other worker threads that there is a new box on the belt
 
     lock( @$belt );
-    push( @$belt,$belt->_freeze( \@_ ) );
+    push( @$belt,Thread::Serialize::freeze( @_ ) );
     cond_signal( @$belt );
 } #put
 
@@ -85,7 +85,7 @@ sub take {
 
 # Thaw the contents of the box and return the result
 
-    $belt->_thaw( $box );
+    Thread::Serialize::thaw( $box );
 } #take
 
 #---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ sub clean {
 
     my $belt = shift;
     return $belt->_clean unless wantarray;
-    map {Storable::thaw( $_ )} $belt->_clean;
+    map {[Thread::Serialize::thaw( $_ )]} $belt->_clean;
 } #clean
 
 #---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ sub peek {
 
 # Thaw the contents of the box and return the result
 
-    $belt->_thaw( $box );
+    Thread::Serialize::thaw( $box );
 } #peek
 
 #---------------------------------------------------------------------------

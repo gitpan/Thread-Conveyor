@@ -9,6 +9,6 @@ WriteMakefile (
   ABSTRACT	=> 'transport of any data-structure') : (),
  VERSION_FROM	=> 'lib/Thread/Conveyor.pm',
  PREREQ_PM	=> {
-                    'Storable' => 0,
+                    'Thread::Serialize' => '0.01',
                    },
 );

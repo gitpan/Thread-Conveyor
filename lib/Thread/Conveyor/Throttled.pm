@@ -5,7 +5,7 @@ package Thread::Conveyor::Throttled;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.05';
+our $VERSION : unique = '0.06';
 use strict;
 
 # Make sure we can do a shared array belt
