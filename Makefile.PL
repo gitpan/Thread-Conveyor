@@ -4,11 +4,10 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile (
  NAME		=> "Thread::Conveyor",
- ($[ >= 5.005) ?
- (AUTHOR	=> 'Elizabeth Mattijsen (liz@dijkmat.nl)',
-  ABSTRACT	=> 'transport of any data-structure') : (),
+ AUTHOR		=> 'Elizabeth Mattijsen (liz@dijkmat.nl)',
+ ABSTRACT	=> 'transport of any data-structure',
  VERSION_FROM	=> 'lib/Thread/Conveyor.pm',
  PREREQ_PM	=> {
-                    'Thread::Tie' => '0.08',
+                    'Thread::Tie' => '0.09',
                    },
 );

@@ -7,7 +7,7 @@ use Thread::Tie ();
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.13';
+$VERSION = '0.14';
 use strict;
 
 # Make sure we only load stuff when we actually need it
@@ -444,7 +444,7 @@ completely, the belt mechanism was implemented from scratch.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2002 Elizabeth Mattijsen <liz@dijkmat.nl>. All rights
+Copyright (c) 2002-2003 Elizabeth Mattijsen <liz@dijkmat.nl>. All rights
 reserved.  This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
