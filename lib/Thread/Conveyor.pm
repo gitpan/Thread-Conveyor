@@ -3,16 +3,18 @@ package Thread::Conveyor;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.01';
+our $VERSION : unique = '0.02';
 use strict;
 
 # Make sure we have threads
 # Make sure we can share and wait and signal
 # Make sure we have Storable
+# Make sure we can throttle if needed
 
-use threads; ();
+use threads ();
 use threads::shared qw(cond_wait cond_signal);
 use Storable ();
+use Thread::Conveyor::Throttled ();
 
 # Satisfy -require-
 
@@ -24,15 +26,40 @@ use Storable ();
 
 #---------------------------------------------------------------------------
 #  IN: 1 class with which to bless the object
+#      2 parameter hash reference
 # OUT: 1 instantiated object
 
 sub new {
 
+# Obtain the class
+# Obtain the parameter hash, or create an empty one
 # Create the conveyor belt
-# Bless it as the object
+# And bless it as a local object
 
+    my $class = shift;
+    my $self = shift || {};
     my @belt : shared;
-    bless \@belt,shift;
+    my $belt = bless \@belt,$class;
+
+# Set the default number of boxes to throttle to unless specifically specified
+# Return now with a simple unthrottled belt if so explicitely specified
+
+    $self->{'maxboxes'} = 50 unless exists( $self->{'maxboxes'} );
+    return $belt unless $self->{'maxboxes'};
+
+# Set the minimum number of boxes if not set yet
+# Embed the bare belt object in the throttled object
+# Initialize a shared halted flag
+# Safe a reference to it in the object
+
+    $self->{'minboxes'} ||= $self->{'maxboxes'} >> 1;
+    $self->{'belt'} = $belt;
+    my $halted : shared = 0;
+    $self->{'halted'} = \$halted;
+
+# Return with a specially blessed object
+
+    bless $self,$class.'::Throttled';
 } #new
 
 #---------------------------------------------------------------------------
@@ -154,18 +181,21 @@ __END__
 
 =head1 NAME
 
-Thread::Conveyor - transport of any data-structure
+Thread::Conveyor - transport of any data-structure between threads
 
 =head1 SYNOPSIS
 
     use Thread::Conveyor;
-    my $belt = Thread::Conveyor->new;
+    my $belt = Thread::Conveyor->new( {maxboxes => 50, minboxes => 25} );
     $belt->put( "foo", ["bar"], {"zoo"} );
     my ($foo,$bar,$zoo) = $belt->take;
     my ($foo,$bar,$zoo) = $belt->take_dontwait;
     my ($foo,$bar,$zoo) = $belt->peek;
     my ($foo,$bar,$zoo) = $belt->peek_dontwait;
     my $onbelt = $belt->onbelt;
+
+    $belt->maxboxes( 100 );
+    $belt->minboxes( 50 );
 
 =head1 DESCRIPTION
 
@@ -188,14 +218,67 @@ arrays (lists) and hashes.  Freezing and thawing is currently done with the
 L<Storable> method, but that may change in the future.  Objects and code
 references are currently B<not> allowed.
 
+By default, the maximum number of boxes on the belt is limited to B<50>.
+Putting of boxes on the belt is halted if the maximum number of boxes is
+exceeded.  This throttling feature was added because it was found that
+excessive memory usage could be caused by having the belt growing too large.
+Throttling can be disabled if so desired.
+
 =head1 CLASS METHODS
 
 =head2 new
 
- $belt = Thread::Conveyor->new;
+ $belt = Thread::Conveyor->new(
+  {
+   maxboxes => 50,
+   minboxes => 25,
+  }
+ );
 
 The "new" function creates a new empty belt.  It returns the instantiated
 Thread::Conveyor object.
+
+The input parameter is a reference to a hash.  The following fields are
+B<optional> in the hash reference:
+
+=over 2
+
+=item maxboxes
+
+ maxboxes => 50,
+
+ maxboxes => undef,  # disable throttling
+
+The "maxboxes" field specifies the B<maximum> number of boxes that can be
+sitting on the belt to be handled (throttling).  If a new L<put> would
+exceed this amount, putting of boxes will be halted until the number of
+boxes waiting to be handled has become at least as low as the amount
+specified with the "minboxes" field.
+
+Fifty boxes will be assumed for the "maxboxes" field if it is not specified.
+If you do not want to have any throttling, you can specify the value "undef"
+for the field.  But beware!  If you do not have throttling active, you may
+wind up using excessive amounts of memory used for storing all of the boxes
+that have not been handled yet.
+
+The L<maxboxes> method can be called to change the throttling settings
+during the lifetime of the object.
+
+=item minboxes
+
+ minboxes => 25, # default: maxboxes / 2
+
+The "minboxes" field specified the B<minimum> number of boxes that can be
+waiting on the belt to be handled before the L<put>ting of boxes is allowed
+again (throttling).
+
+If throttling is active and the "minboxes" field is not specified, then
+half of the "maxboxes" value will be assumed.
+
+The L<minboxes> method can be called to change the throttling settings
+during the lifetime of the object.
+
+=back
 
 =head1 OBJECT METHODS
 
@@ -251,6 +334,40 @@ returned if there was no box available at the end of the belt.
 
 The "onbelt" method returns the number of boxes that are still in the belt.
 
+=head2 maxboxes
+
+ $belt->maxboxes( 100 );
+ $maxboxes = $belt->maxboxes;
+
+The "maxboxes" method returns the maximum number of boxes that can be on the
+belt before throttling sets in.  The input value, if specified, specifies the
+new maximum number of boxes that may be on the belt.  Throttling will be
+switched off if the value B<undef> is specified.
+
+Specifying the "maxboxes" field when creating the object with L<new> is
+equivalent to calling this method.
+
+The L<minboxes> method can be called to specify the minimum number of boxes
+that must be on the belt before the putting of boxes is allowed again after
+reaching the maximum number of boxes.  By default, half of the "maxboxes"
+value is assumed.
+
+=head2 minboxes
+
+ $belt->minboxes( 50 );
+ $minboxes = $belt->minboxes;
+
+The "minboxes" method returns the minimum number of boxes that must be on the
+belt before the putting of boxes is allowed again after reaching the maximum
+number of boxes.  The input value, if specified, specifies the new minimum
+number of boxes that must be on the belt.
+
+Specifying the "minboxes" field when creating the object with L<new> is
+equivalent to calling this method.
+
+The L<maxboxes> method can be called to set the maximum number of boxes that
+may be on the belt before the putting of boxes will be halted.
+
 =head1 CAVEATS
 
 Passing unshared values between threads is accomplished by serializing the
@@ -281,6 +398,6 @@ modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<threads>, L<threads::shared>, <Thread::Queue>, L<Storable>.
+L<threads>, L<threads::shared>, L<Thread::Queue>, L<Storable>.
 
 =cut

@@ -5,4 +5,5 @@ TODO
 VERSION
 Makefile.PL
 lib/Thread/Conveyor.pm
+lib/Thread/Conveyor/Throttled.pm
 t/Conveyor.t

@@ -5,13 +5,15 @@ BEGIN {				# Magic Perl CORE pragma
     }
 }
 
-use Test::More tests => 17;
+use Test::More tests => 17 + (3*4);
 
 BEGIN { use_ok('Thread::Conveyor') }
 
 my $belt = Thread::Conveyor->new;
 isa_ok( $belt, 'Thread::Conveyor', 'check object type' );
 can_ok( $belt,qw(
+ maxboxes
+ minboxes
  new
  onbelt
  peek
@@ -57,3 +59,24 @@ ok(
 
 my @e = $belt->take_dontwait;
 cmp_ok( @e, '==', 0,			'check # elements dontwait' );
+
+foreach ({maxboxes => undef},{},{maxboxes => 500, minboxes => 495}) {
+  my $belt = Thread::Conveyor->new( $_ );
+  isa_ok( $belt,'Thread::Conveyor',	'check object type' );
+  my @n : shared;
+  my $thread = threads->new(
+   sub {
+     while (1) {
+       my ($n) = $belt->take;
+       return unless defined( $n );
+       push( @n,$n );
+     }
+   }
+  );
+  isa_ok( $thread,'threads',		'check object type' );
+  $belt->put( $_ ) foreach 1..1000,undef;
+  ok( !defined( $thread->join ),	'check result of join()' );
+  my $check = '';
+  $check .= $_ foreach 1..1000;
+  is( join('',@n),$check,		'check result of boxes on belt' );
+}

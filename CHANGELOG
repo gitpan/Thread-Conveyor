@@ -1,3 +1,16 @@
+0.02	30 July 2002
+	Adapted Thread::Conveyor to default to a throttled conveyor belt
+	automatically if no specific parameters specified.  Now allows for
+	specification of throttling settings in a parameter hash reference.
+	If unthrottling is specifically specified, returns to the old
+	unthrottled behaviour (where the object is just an array reference),
+	thus keeping the old execution speed.
+
+	Added helper class Thread::Conveyor::Throttled to allow for throttled
+	conveyor belts that block if there are too many boxes on the belt.
+
+	Fixed some documentation nits.
+
 0.01	25 July 2002
 	First version of Thread::Conveyor, which started life as
 	Thread::Queue::Any.
