@@ -1,3 +1,7 @@
+0.04    1 August 2002
+	Added internal method "_belt" to get at the actual belt, for both
+	the normal and the throttled belt.
+
 0.03	31 July 2002
 	Added internal methods "_freeze" and "_thaw" so that we can move
 	to a different serialization scheme or other optimizations without

@@ -3,7 +3,7 @@ package Thread::Conveyor;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our $VERSION : unique = '0.03';
+our $VERSION : unique = '0.04';
 use strict;
 
 # Make sure we have threads
@@ -222,6 +222,12 @@ sub minjobs {
 #---------------------------------------------------------------------------
 
 # Internal subroutines
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1 instantiated belt object (the same here, but different for Throttled)
+
+sub _belt { shift } #_belt
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object

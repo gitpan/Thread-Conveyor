@@ -5,7 +5,7 @@ package Thread::Conveyor::Throttled;
 # Make sure we do everything by the book from now on
 
 our @ISA : unique = qw(Thread::Conveyor);
-our $VERSION : unique = '0.03';
+our $VERSION : unique = '0.04';
 use strict;
 
 # Make sure we can wait and broadcast
@@ -192,6 +192,12 @@ sub _green {
     $$halted = 0;
     cond_broadcast( $belt );
 } #_green
+
+#---------------------------------------------------------------------------
+#  IN: 1 instantiated object
+# OUT: 1 instantiated belt object
+
+sub _belt { shift->{'belt'} } #_belt
 
 #---------------------------------------------------------------------------
 #  IN: 1 instantiated object
