@@ -8,8 +8,9 @@ WriteMakefile (
  AUTHOR		=> 'Elizabeth Mattijsen (liz@dijkmat.nl)',
  ABSTRACT	=> 'transport of any data-structure',
  VERSION_FROM	=> 'lib/Thread/Conveyor.pm',
- PREREQ_PM	=> {
-                    'load'        => 0,
-                    'Thread::Tie' => '0.09',
-                   },
+ PREREQ_PM	=> { qw(
+                    load               0
+                    Thread::Serialize  0
+                    Thread::Tie        0.09
+                   ) },
 );

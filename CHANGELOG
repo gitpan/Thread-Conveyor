@@ -1,3 +1,14 @@
+0.17	7 January 2004
+	Fixed some documentation inconsistencies.  Added documentation on what
+	is different from Thread::Queue::Any.
+
+	Made default optimization dependent on the version of Perl used.
+	Added test for it.
+
+	Removed mention of Storable: replaced it with Thread::Serialize.
+	Added Thread::Serialize as a dependency, just for documentation sake
+	really.
+
 0.16	28 December 2003
 	Added automatic required modules update using Devel::Required.
 

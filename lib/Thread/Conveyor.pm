@@ -7,7 +7,7 @@ use Thread::Tie ();
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.16';
+$VERSION = '0.17';
 use strict;
 
 # Make sure we only load stuff when we actually need it
@@ -16,7 +16,7 @@ use load;
 
 # Set default optimization
 
-our $OPTIMIZE = 'memory';
+our $OPTIMIZE = $] > 5.008 ? 'cpu' : 'memory';
 
 # Satisfy -require-
 
@@ -166,8 +166,8 @@ or more worker threads on the other end of the belt to be thawed and returned.
 
 A box may consist of any combination of scalars and references to scalars,
 arrays (lists) and hashes.  Freezing and thawing is currently done with the
-L<Storable> method, but that may change in the future.  Objects and code
-references are currently B<not> allowed.
+L<Thread::Serialize> module, but that may change in the future.  Objects and
+code references are currently B<not> allowed.
 
 By default, the maximum number of boxes on the belt is limited to B<50>.
 Putting of boxes on the belt is halted if the maximum number of boxes is
@@ -232,12 +232,14 @@ during the lifetime of the object.
 
 =item optimize
 
- optimize => 'cpu', # default: 'memory'
+ optimize => 'cpu', # default: depends on Perl version
 
 The "optimize" field specifies which implementation of the belt will be
-selected.  Currently there are two choices: 'cpu' and 'memory'.  By default,
-the "memory" optimization will be selected if no specific optmization is
-specified.
+selected.  Currently there are two choices: 'cpu' and 'memory'.  For Perl
+5.8.0 the default is "memory".  For higher versions of perl, the default
+optimization is "cpu".  The reason for this was that Perl 5.8.0 has a severe
+memory leak with shared arrays, which is what is being used with the "cpu"
+optimization.
 
 You can call the class method L<optimize> to change the default optimization.
 
@@ -338,6 +340,10 @@ references.
 For advanced, and mostly internal, usages, it is possible to specify the
 ordinal number of the box in which to peek.
 
+Please note that there is B<no> guarantee that "take" will give you the
+same data as which is returned with this method, as any other thread can
+have taken the boxes off of the belt in the meantime.
+
 =head2 peek_dontwait
 
  ($string,$scalar,$listref,$hashref) = $belt->peek_dontwait;
@@ -352,6 +358,10 @@ returned if there was no box available at the end of the belt.
 
 For advanced, and mostly internal, usages, it is possible to specify the
 ordinal number of the box in which to peek.
+
+Please note that there is B<no> guarantee that "take" will give you the
+same data as which is returned with this method, as any other thread can
+have taken the boxes off of the belt in the meantime.
 
 =head2 onbelt
 
@@ -417,6 +427,7 @@ used for the belt.  It returns undef if no seperate thread is being used.
 =head1 REQUIRED MODULES
 
  load (any)
+ Thread::Serialize (any)
  Thread::Tie (0.09)
 
 =head1 OPTIMIZATIONS
@@ -442,19 +453,56 @@ Please report bugs to <perlbugs@dijkmat.nl>.
 
 =head1 HISTORY
 
-This module started life as "Thread::Queue::Any" and as a sub-class of
+This module started life as L<Thread::Queue::Any> and as a sub-class of
 L<Thread::Queue>.  Using the conveyor belt metaphore seemed more appropriate
 and therefore the name was changed.  To cut the cord with Thread::Queue
 completely, the belt mechanism was implemented from scratch.
 
+Why would you use Thread::Conveyor over Thread::Queue::Any?  Well,
+Thread::Conveyor has the following extra features:
+
+=over 2
+
+=item It works with Perl 5.8.0
+
+Shared arrays leak memory very badly in Perl 5.8.0.  Therefore, you cannot
+really use Thread::Queue in Perl 5.8.0, and consequently cannot use
+Thread::Queue::Any in any type of production environment.
+
+=item It provides throttling
+
+A thread that enqueues very many values quickly, can cause a large amount of
+memory to be used.  With throttling, any thread that enqueues will have to
+wait until there is "room" on the belt again before continuing.  See methods
+"minboxes" and "maxboxes".
+
+=item You can check for a new value without removing it from the belt
+
+Sometimes it can be nice to check whether there is a new value on the belt
+without actually removing it from the belt.  See the "peek" and "peek_dontwait"
+methods.
+
+=item You can reset the entire belt
+
+Sometimes you want to be able to reset the contents of the belt.  See the
+"clean" and "clean_dontwait" methods for that.
+
+=item You can get everything from the belt in one go
+
+Sometimes you want everything that's on the belt in one go.  That can also
+ba accomplished with the "clean" and "clean_dontwait" methods.
+
+=back
+
 =head1 COPYRIGHT
 
-Copyright (c) 2002-2003 Elizabeth Mattijsen <liz@dijkmat.nl>. All rights
+Copyright (c) 2002-2004 Elizabeth Mattijsen <liz@dijkmat.nl>. All rights
 reserved.  This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<threads>, L<threads::shared>, L<Thread::Queue>, L<Thread::Serialize>.
+L<threads>, L<threads::shared>, L<Thread::Queue>, L<Thread::Queue::Any>,
+L<Thread::Serialize>.
 
 =cut

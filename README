@@ -17,6 +17,7 @@ modify it under the same terms as Perl itself.
 
 Required Modules:
  load (any)
+ Thread::Serialize (any)
  Thread::Tie (0.09)
 
 The build is standard:

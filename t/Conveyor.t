@@ -7,9 +7,12 @@ BEGIN {				# Magic Perl CORE pragma
 
 use strict;
 use warnings;
-use Test::More tests => 1 + (2 * (16 + 3 * (3 * 4) ) );
+use Test::More tests => 2 + (2 * (16 + 3 * (3 * 4) ) );
 
 BEGIN { use_ok('Thread::Conveyor') }
+
+my $default_optimize = $] > 5.008 ? 'cpu' : 'memory';
+is( Thread::Conveyor->optimize,$default_optimize,"Check default optimization" );
 
 foreach my $optimize (qw(cpu memory)) {
 
