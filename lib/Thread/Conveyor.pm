@@ -7,12 +7,12 @@ use Thread::Tie ();
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-$VERSION = '0.12';
+$VERSION = '0.13';
 use strict;
 
 # Make sure we only load stuff when we actually need it
 
-use AutoLoader 'AUTOLOAD';
+use load;
 
 # Set default optimization
 
@@ -24,15 +24,7 @@ our $OPTIMIZE = 'memory';
 
 #---------------------------------------------------------------------------
 
-# standard Perl features
-
-#---------------------------------------------------------------------------
-
-sub DESTROY {}; # dummy, prevents AutoLoader problems
-
-#---------------------------------------------------------------------------
-
-# AutoLoader takes over from here
+# The following subroutines are loaded only on demand
 
 __END__
 
@@ -120,6 +112,8 @@ sub _new {
 } #_new
 
 #---------------------------------------------------------------------------
+
+__END__
 
 =head1 NAME
 

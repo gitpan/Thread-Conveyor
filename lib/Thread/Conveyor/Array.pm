@@ -1,20 +1,26 @@
 package Thread::Conveyor::Array;
 
-# Make sure we are a belt
 # Make sure we have version info for this module
+# Make sure we are a belt
 # Make sure we do everything by the book from now on
 
+$VERSION = '0.13';
 @ISA = qw(Thread::Conveyor);
-$VERSION = '0.12';
 use strict;
 
 # Make sure we only load stuff when we actually need it
 
-use AutoLoader ();
+use load;
 
 # Satisfy -require-
 
 1;
+
+#---------------------------------------------------------------------------
+
+# The following subroutines are loaded only on demand
+
+__END__
 
 #---------------------------------------------------------------------------
 
@@ -44,12 +50,6 @@ sub new {
 # OUT: 1 shared item on which you can lock
 
 sub semaphore { shift } # semaphore
-
-#---------------------------------------------------------------------------
-
-# AutoLoader takes over from here
-
-__END__
 
 #---------------------------------------------------------------------------
 
@@ -266,6 +266,8 @@ sub _clean {
 } #_clean
 
 #---------------------------------------------------------------------------
+
+__END__
 
 =head1 NAME
 

@@ -21,21 +21,21 @@ foreach my $optimize (qw(cpu memory)) {
   isa_ok( $belt, 'Thread::Conveyor', 'check object type' );
 
   can_ok( $belt,qw(
+   clean
+   clean_dontwait
+   maxboxes
+   minboxes
    new
+   onbelt
+   peek
+   peek_dontwait
+   put
+   take
+   take_dontwait
+   shutdown
+   thread
+   tid
   ) );
-#   clean
-#   clean_dontwait
-#   maxboxes
-#   minboxes
-#   onbelt
-#   peek
-#   peek_dontwait
-#   put
-#   take
-#   take_dontwait
-#   shutdown
-#   thread
-#   tid
 
   $belt->put( qw(a b c) );
   $belt->put( [qw(a b c)] );

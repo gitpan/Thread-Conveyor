@@ -9,6 +9,6 @@ WriteMakefile (
   ABSTRACT	=> 'transport of any data-structure') : (),
  VERSION_FROM	=> 'lib/Thread/Conveyor.pm',
  PREREQ_PM	=> {
-                    'Thread::Tie' => '0.07',
+                    'Thread::Tie' => '0.08',
                    },
 );

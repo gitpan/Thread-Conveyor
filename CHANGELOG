@@ -1,3 +1,10 @@
+0.13	30 September 2002
+	Use "load.pm" instead of AutoLoader.  Changed dependency on Thread::Tie
+	to version 0.08 (which also uses load.pm).
+
+	Added check for availability of methods again: load.pm does support
+	that, whereas AutoLoader does not.
+
 0.12	27 September 2002
 	Ask found another problem in T::C::Tied::clean_dontwait.  Fixed.
 
