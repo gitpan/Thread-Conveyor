@@ -4,8 +4,8 @@ package Thread::Conveyor::Array;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our @ISA = qw(Thread::Conveyor);
-our $VERSION = '0.10';
+@ISA = qw(Thread::Conveyor);
+$VERSION = '0.11';
 use strict;
 
 # Make sure we only load stuff when we actually need it

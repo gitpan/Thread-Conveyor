@@ -6,6 +6,7 @@ BEGIN {				# Magic Perl CORE pragma
 }
 
 use strict;
+use warnings;
 use Test::More tests => 1 + (2 * (16 + 3 * (3 * 4) ) );
 
 BEGIN { use_ok('Thread::Conveyor') }

@@ -4,8 +4,8 @@ package Thread::Conveyor::Throttled;
 # Make sure we have version info for this module
 # Make sure we do everything by the book from now on
 
-our @ISA = qw(Thread::Conveyor);
-our $VERSION = '0.10';
+@ISA = qw(Thread::Conveyor);
+$VERSION = '0.11';
 use strict;
 
 # Make sure we only load stuff when we actually need it
@@ -36,7 +36,9 @@ sub new {
     my $class = shift;
     my $self = shift;
     my $belt = $self->{'belt'} = $class->SUPER::_new(
-     'Thread::Conveyor::'.(qw(Tied Array)[$self->{'optimize'} eq 'cpu']), @_ );
+     'Thread::Conveyor::'.(qw(Tied Array)[($self->{'optimize'}||'') eq 'cpu']),
+     @_
+    );
     $self->{'semaphore'} = $belt->semaphore;
     bless $self,$class;
 } #new

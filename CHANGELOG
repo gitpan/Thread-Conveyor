@@ -1,3 +1,9 @@
+0.11	26 September 2002
+	Fixed some warnings in T::C::Throttled, spotted by Ask Bjoern Hansen.
+
+	Removed "our" from $VERSION and @ISA, should shave off some bytes in
+	memory usage, as found from testing with Benchmark::Thread::Size.
+
 0.10	1 September 2002
 	Replaced dependency on Thread::Serialize by dependency on Thread::Tie
 	as the default, memory optimized implementation, now uses Thread::Tie.
