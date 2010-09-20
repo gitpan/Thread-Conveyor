@@ -1,3 +1,10 @@
+0.19    20 September 2010
+	Checking tool chain with perl.5.13.5.
+
+0.18	3 October 2007
+	Hopefully fixed test-suite for none thread enabled Perls.  Updated
+	to use new VERSION feature of Devel::Required.
+
 0.17	7 January 2004
 	Fixed some documentation inconsistencies.  Added documentation on what
 	is different from Thread::Queue::Any.
